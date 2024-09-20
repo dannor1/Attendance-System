@@ -11,8 +11,7 @@ This project is an attendance tracking system built for New Abirem Government Ho
 3. [Installation](#installation)
 4. [Usage](#usage)
 5. [Admin Credentials](#admin-credentials)
-6. [Steps for GitHub Setup](#steps-for-github-setup)
-7. [Contributions](#contributions)
+6. [Contributions](#contributions)
 
 ---
 
