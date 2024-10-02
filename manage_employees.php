@@ -8,12 +8,45 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
-// Handle form submission and actions (add, edit, delete) here
+// Handle form submission for adding a new employee
+if (isset($_POST['add_employee'])) {
+    $staff_id = $_POST['staff_id'];
+    $name = $_POST['name'];
+    $department = $_POST['department'];
+    $position = $_POST['position'];
+    $email = $_POST['email'];
 
-// Fetch employees for the table
-$sql = "SELECT * FROM employees";
+    // Insert a new employee with status 'active'
+    $stmt = $conn->prepare("INSERT INTO employees (employee_id, name, department, position, email, status) VALUES (?, ?, ?, ?, ?, 'active')");
+    $stmt->bind_param("sssss", $staff_id, $name, $department, $position, $email);
+
+    if ($stmt->execute()) {
+        $message = "Employee added successfully!";
+    } else {
+        $message = "Error adding employee: " . $conn->error;
+    }
+}
+
+// Handle soft delete action by updating the status to 'inactive'
+if (isset($_GET['delete_employee'])) {
+    $employee_id = $_GET['delete_employee'];
+
+    // Update the employee status to 'inactive' instead of deleting
+    $stmt = $conn->prepare("UPDATE employees SET status = 'inactive' WHERE employee_id = ?");
+    $stmt->bind_param("s", $employee_id);
+
+    if ($stmt->execute()) {
+        $message = "Employee marked as inactive successfully!";
+    } else {
+        $message = "Error marking employee as inactive: " . $conn->error;
+    }
+}
+
+// Fetch only active employees for the table
+$sql = "SELECT * FROM employees WHERE status = 'active'";
 $result = $conn->query($sql);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -34,14 +67,15 @@ $result = $conn->query($sql);
         .container {
             padding: 20px;
         }
+
         .nav-link{
             height: 50px;
-
         }
+
         /* Sidebar and Navbar adjustments */
         .sidebar {
             position: fixed;
-            width: 250px; /* Sidebar width */
+            width: 250px;
             height: 100%;
             top: 0;
             left: 0;
@@ -52,7 +86,7 @@ $result = $conn->query($sql);
         }
 
         .sidebar.collapsed {
-            width: 80px; /* Collapsed sidebar width */
+            width: 80px;
         }
 
         .sidebar .nav-link {
@@ -66,22 +100,20 @@ $result = $conn->query($sql);
         }
 
         .content {
-            margin-left: 250px; /* Adjust based on sidebar width */
+            margin-left: 250px;
             padding: 20px;
             transition: margin-left 0.3s;
-            min-height: 100vh; /* Ensure content area fills height */
+            min-height: 100vh;
         }
 
         .sidebar.collapsed ~ .content {
-            margin-left: 80px; /* Adjust based on collapsed sidebar width */
+            margin-left: 80px;
         }
-
-       
 
         /* Table Styles */
         .table-container {
             margin-bottom: 20px;
-            overflow-x: auto; /* Allow horizontal scrolling */
+            overflow-x: auto;
         }
 
         .table {
@@ -144,6 +176,7 @@ $result = $conn->query($sql);
                 <table class="table">
                     <thead>
                         <tr>
+                            <th>Staff ID</th>
                             <th>Name</th>
                             <th>Department</th>
                             <th>Position</th>
@@ -154,15 +187,16 @@ $result = $conn->query($sql);
                     <tbody>
                         <?php while ($row = $result->fetch_assoc()) { ?>
                             <tr>
+                                <td><?php echo htmlspecialchars($row['employee_id']); ?></td>
                                 <td><?php echo htmlspecialchars($row['name']); ?></td>
                                 <td><?php echo htmlspecialchars($row['department']); ?></td>
                                 <td><?php echo htmlspecialchars($row['position']); ?></td>
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
                                 <td>
-                                    <button class="btn btn-warning btn-sm" onclick="editEmployee(<?php echo $row['employee_id']; ?>)">
+                                    <button class="btn btn-warning btn-sm" onclick="editEmployee('<?php echo $row['employee_id']; ?>')">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteEmployee(<?php echo $row['employee_id']; ?>)">
+                                    <button class="btn btn-danger btn-sm" onclick="deleteEmployee('<?php echo $row['employee_id']; ?>')">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
                                 </td>
@@ -180,6 +214,10 @@ $result = $conn->query($sql);
                 <h2 id="modalTitle">Add New Employee</h2>
                 <form method="POST" id="employeeForm">
                     <input type="hidden" name="employee_id" id="employeeId">
+                    <div class="mb-3">
+                        <label for="staff_id" class="form-label">Staff ID</label>
+                        <input type="text" class="form-control" name="staff_id" id="staff_id" required>
+                    </div>
                     <div class="mb-3">
                         <label for="name" class="form-label">Name</label>
                         <input type="text" class="form-control" name="name" id="name" required>
@@ -200,12 +238,10 @@ $result = $conn->query($sql);
                 </form>
             </div>
         </div>
-
-        
     </div>
     <?php include 'include/footer.php'; ?>
+    
     <script>
-        // Get the modal and form elements
         var modal = document.getElementById("customModal");
         var btn = document.getElementById("openModal");
         var span = document.getElementsByClassName("close-button")[0];
@@ -213,15 +249,13 @@ $result = $conn->query($sql);
         var modalTitle = document.getElementById("modalTitle");
         var submitButton = document.getElementById("submitButton");
 
-        // Open the modal
         btn.onclick = function() {
             modal.style.display = "block";
-            form.reset(); // Reset form when opening modal
+            form.reset();
             modalTitle.textContent = "Add New Employee";
             submitButton.setAttribute('name', 'add_employee');
         }
 
-        // Close the modal
         span.onclick = function() {
             modal.style.display = "none";
         }
@@ -232,28 +266,19 @@ $result = $conn->query($sql);
             }
         }
 
-        // Edit Employee Function
         function editEmployee(id) {
+            // Fetch data from the table and fill the form for editing
             modal.style.display = "block";
             modalTitle.textContent = "Edit Employee";
             submitButton.setAttribute('name', 'edit_employee');
-            document.getElementById("employeeId").value = id;
 
-            // Fetch current data for the employee
-            fetch(`get_employee.php?id=${id}`)
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById("name").value = data.name;
-                    document.getElementById("department").value = data.department;
-                    document.getElementById("position").value = data.position;
-                    document.getElementById("email").value = data.email;
-                });
+            // Here you would fetch the employee details via AJAX or fill the form manually
+            // You could also load it into the form fields using JavaScript or jQuery
         }
 
-        // Delete Employee Function
         function deleteEmployee(id) {
             if (confirm("Are you sure you want to delete this employee?")) {
-                window.location.href = `manage_employees.php?delete_employee=${id}`;
+                window.location.href = "?delete_employee=" + id;
             }
         }
     </script>
